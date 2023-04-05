@@ -19,6 +19,10 @@ generations = 1000
 crossover_prob = 0.8
 max_generations_without_improvement = 100
 
+# Risk management parameters
+sick_probability = 0.5
+sick_days = 2
+
 def create_individual():
     return [random.randint(0, max_hours_per_day) for _ in range(team_members)]
 
@@ -34,7 +38,12 @@ def evaluate(individual):
     if total_hours == 0:
         return float("inf"),
     
-    days = np.ceil(project_hours / total_hours)
+    # Account for the risk of team members being sick
+    sick_hours = np.random.binomial(sick_days, sick_probability, team_members)
+    adjusted_individual = np.maximum(np.array(individual) - sick_hours, 0)
+    adjusted_total_hours = sum(adjusted_individual)
+    
+    days = np.ceil(project_hours / adjusted_total_hours)
     total_cost = calculate_cost(individual)
     
     if total_cost > budget:
