@@ -3,32 +3,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Problem parameters
-team_members = 6
-project_hours = 60
-max_hours_per_day = 4
+team_members = 10
+project_hours = 3000
+max_hours_per_day = 5
 
 # Budget parameters
-budget = 100
-normal_rate = 25
-overtime_rate = 40
+budget = 20000
+normal_rate = 50
+overtime_rate = 60
 overtime_threshold = 4
 
 # GA parameters
 population_size = 50
-generations = 10000
+generations = 1000
 crossover_prob = 0.8
-mutation_prob = 0.1
+max_generations_without_improvement = 100
 
 def create_individual():
     return [random.randint(0, max_hours_per_day) for _ in range(team_members)]
 
 def calculate_cost(individual):
-    total_cost = 0
-    for hours in individual:
-        if hours > overtime_threshold:
-            total_cost += (overtime_threshold * normal_rate) + ((hours - overtime_threshold) * overtime_rate)
-        else:
-            total_cost += hours * normal_rate
+    hours = np.array(individual)
+    normal_hours = np.minimum(hours, overtime_threshold)
+    overtime_hours = np.maximum(hours - overtime_threshold, 0)
+    total_cost = np.sum(normal_hours * normal_rate + overtime_hours * overtime_rate)
     return total_cost
 
 def evaluate(individual):
@@ -45,7 +43,7 @@ def evaluate(individual):
         
     return days,
 
-def selection(population, fitnesses, k):
+def tournament_selection(population, fitnesses, k):
     selected = []
     for _ in range(k):
         candidates = random.sample(range(len(population)), 3)
@@ -72,12 +70,13 @@ def ga():
     # Main GA loop
     best_individual = None
     best_fitness = None
+    generations_without_improvement = 0
     for gen in range(generations):
         offspring = []
 
         # Apply crossover and mutation
         for _ in range(population_size // 2):
-            parent1, parent2 = selection(population, fitnesses, 2)
+            parent1, parent2 = tournament_selection(population, fitnesses, 2)
             if random.random() < crossover_prob:
                 child1, child2 = crossover(parent1, parent2)
             else:
@@ -91,12 +90,20 @@ def ga():
         population = offspring
         fitnesses = list(map(evaluate, population))
 
-        # Record best individual
-        current_best = min(population, key=evaluate)
-        current_best_fitness = evaluate(current_best)[0]
+        # Track best individual
+        min_index = np.argmin(fitnesses)
+        current_best = population[min_index]
+        current_best_fitness = fitnesses[min_index]
         if best_fitness is None or current_best_fitness < best_fitness:
             best_individual = current_best
             best_fitness = current_best_fitness
+            generations_without_improvement = 0
+        else:
+            generations_without_improvement += 1
+
+        # Check stopping criterion
+        if generations_without_improvement >= max_generations_without_improvement:
+            break
 
     return best_individual, best_fitness
 
