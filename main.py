@@ -8,16 +8,16 @@ project_hours = 60
 max_hours_per_day = 4
 
 # Budget parameters
-budget = 1000
+budget = 100
 normal_rate = 25
 overtime_rate = 40
 overtime_threshold = 4
 
 # GA parameters
 population_size = 50
-generations = 100
+generations = 10000
 crossover_prob = 0.8
-mutation_prob = 0.2
+mutation_prob = 0.1
 
 def create_individual():
     return [random.randint(0, max_hours_per_day) for _ in range(team_members)]
