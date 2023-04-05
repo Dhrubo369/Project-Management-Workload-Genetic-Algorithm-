@@ -3,24 +3,46 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Problem parameters
-team_members = 10
-project_hours = 120
-max_hours_per_day = 5
+team_members = 6
+project_hours = 60
+max_hours_per_day = 4
+
+# Budget parameters
+budget = 1000
+normal_rate = 25
+overtime_rate = 40
+overtime_threshold = 4
 
 # GA parameters
 population_size = 50
-generations = 10000
+generations = 100
 crossover_prob = 0.8
 mutation_prob = 0.2
 
 def create_individual():
     return [random.randint(0, max_hours_per_day) for _ in range(team_members)]
 
+def calculate_cost(individual):
+    total_cost = 0
+    for hours in individual:
+        if hours > overtime_threshold:
+            total_cost += (overtime_threshold * normal_rate) + ((hours - overtime_threshold) * overtime_rate)
+        else:
+            total_cost += hours * normal_rate
+    return total_cost
+
 def evaluate(individual):
     total_hours = sum(individual)
     if total_hours == 0:
         return float("inf"),
+    
     days = np.ceil(project_hours / total_hours)
+    total_cost = calculate_cost(individual)
+    
+    if total_cost > budget:
+        penalty = (total_cost - budget) / (budget * 0.01)  # penalty as a percentage of the budget
+        days += penalty
+        
     return days,
 
 def selection(population, fitnesses, k):
