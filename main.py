@@ -1,90 +1,92 @@
+import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Define problem parameters
-num_tasks = 10
-num_members = 5
-workload_capacities = np.array([50, 60, 70, 80, 90])
-task_difficulties = np.random.randint(1, 11, num_tasks)
+# Problem parameters
+team_members = 10
+project_hours = 120
+max_hours_per_day = 5
 
-# Define genetic algorithm parameters
-pop_size = 50
-num_generations = 100
-mutation_rate = 0.1
-tournament_size = 3
-w1 = 0.5
-w2 = 0.5
+# GA parameters
+population_size = 50
+generations = 10000
+crossover_prob = 0.8
+mutation_prob = 0.2
 
-# Define fitness function
-def fitness_function(solution):
-    total_workload = np.sum(solution * task_difficulties)
-    ideal_workload = np.sum(task_difficulties) / num_members
-    project_duration = np.max(np.dot(solution, task_difficulties))
-    min_duration = np.min(np.dot(population, task_difficulties))
-    max_duration = np.max(np.dot(population, task_difficulties))
-    workload_fitness = w1 * (1 - abs(total_workload - ideal_workload) / ideal_workload)
-    duration_fitness = w2 * (1 - (project_duration - min_duration) / (max_duration - min_duration))
-    fitness = workload_fitness + duration_fitness
-    return fitness
+def create_individual():
+    return [random.randint(0, max_hours_per_day) for _ in range(team_members)]
 
-# Generate initial population
-population = np.random.randint(2, size=(pop_size, num_tasks))
+def evaluate(individual):
+    total_hours = sum(individual)
+    if total_hours == 0:
+        return float("inf"),
+    days = np.ceil(project_hours / total_hours)
+    return days,
 
-# Keep track of best solution and its fitness over generations
-best_solution = None
-best_fitness = -np.inf
-fitness_history = []
+def selection(population, fitnesses, k):
+    selected = []
+    for _ in range(k):
+        candidates = random.sample(range(len(population)), 3)
+        selected.append(min(candidates, key=lambda x: fitnesses[x]))
+    return [population[i] for i in selected]
 
-# Run genetic algorithm
-for i in range(num_generations):
-    # Evaluate fitness of population
-    fitness_values = np.array([fitness_function(solution) for solution in population])
+def crossover(parent1, parent2):
+    point = random.randint(1, len(parent1) - 1)
+    child1 = parent1[:point] + parent2[point:]
+    child2 = parent2[:point] + parent1[point:]
+    return child1, child2
 
-    # Update best solution and its fitness
-    best_index = np.argmax(fitness_values)
-    if fitness_values[best_index] > best_fitness:
-        best_solution = population[best_index]
-        best_fitness = fitness_values[best_index]
+def mutate(individual, indpb):
+    for i in range(len(individual)):
+        if random.random() < indpb:
+            individual[i] = random.randint(0, max_hours_per_day)
+    return individual,
 
-    # Add best fitness to history
-    fitness_history.append(best_fitness)
+def ga():
+    # Create initial population
+    population = [create_individual() for _ in range(population_size)]
+    fitnesses = list(map(evaluate, population))
 
-    # Select parents using tournament selection
-    parents = []
-    for j in range(pop_size):
-        tournament = np.random.choice(pop_size, tournament_size, replace=False)
-        tournament_fitness = fitness_values[tournament]
-        winner_index = tournament[np.argmax(tournament_fitness)]
-        parents.append(population[winner_index])
+    # Main GA loop
+    best_individual = None
+    best_fitness = None
+    for gen in range(generations):
+        offspring = []
 
-    # Create offspring using single-point crossover
-    offspring = []
-    for j in range(pop_size):
-        parent1 = parents[np.random.randint(len(parents))]
-        parent2 = parents[np.random.randint(len(parents))]
-        crossover_point = np.random.randint(num_tasks)
-        child = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
-        offspring.append(child)
+        # Apply crossover and mutation
+        for _ in range(population_size // 2):
+            parent1, parent2 = selection(population, fitnesses, 2)
+            if random.random() < crossover_prob:
+                child1, child2 = crossover(parent1, parent2)
+            else:
+                child1, child2 = parent1, parent2
 
-    # Mutate offspring
-    for j in range(pop_size):
-        for k in range(num_tasks):
-            if np.random.rand() < mutation_rate:
-                offspring[j][k] = 1 - offspring[j][k]
+            mutate(child1, 1 / team_members)
+            mutate(child2, 1 / team_members)
+            offspring.extend([child1, child2])
 
-    # Evaluate fitness of offspring
-    offspring_fitness = np.array([fitness_function(solution) for solution in offspring])
+        # Update population
+        population = offspring
+        fitnesses = list(map(evaluate, population))
 
-    # Select survivors using elitism selection
-    sorted_indices = np.argsort(np.concatenate((fitness_values, offspring_fitness)))[::-1]
-    population = np.array([np.copy(np.concatenate((population[index], offspring[index]))) for index in sorted_indices[:pop_size]])
+        # Record best individual
+        current_best = min(population, key=evaluate)
+        current_best_fitness = evaluate(current_best)[0]
+        if best_fitness is None or current_best_fitness < best_fitness:
+            best_individual = current_best
+            best_fitness = current_best_fitness
 
-# Print best solution and its fitness
-print('Best solution:', best_solution)
-print('Best fitness:', best_fitness)
+    return best_individual, best_fitness
 
-# Plot fitness over generations
-plt.plot(fitness_history)
-plt.xlabel('Generation')
-plt.ylabel('Fitness')
+best_individual, best_fitness = ga()
+print("Best individual:", best_individual)
+print("Project duration (days):", best_fitness)
+
+# Visualize the result
+x = np.arange(team_members)
+plt.bar(x, best_individual)
+plt.xlabel("Team Member")
+plt.ylabel("Hours Worked")
+plt.title(f"Task Scheduling (Project duration: {best_fitness} days)")
+plt.xticks(x)
 plt.show()
