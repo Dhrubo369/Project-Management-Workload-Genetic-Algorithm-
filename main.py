@@ -3,38 +3,54 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Problem parameters
-team_members = 2
+team_members = 5
 project_tasks = [
     {"id": 0, "hours": 20, "skills_required": [0], "dependencies": []},
     {"id": 1, "hours": 30, "skills_required": [1], "dependencies": [0]},
-    {"id": 2, "hours": 10, "skills_required": [0, 1], "dependencies": [1]},
+    {"id": 2, "hours": 10, "skills_required": [0, 1], "dependencies": [1,0]},
+    {"id": 3, "hours": 15, "skills_required": [2], "dependencies": [0]},
+    {"id": 4, "hours": 25, "skills_required": [3, 4], "dependencies": [2, 3]},
 ]
 
 team_member_skills = [
     {"id": 0, "skills": [0, 1]},
     {"id": 1, "skills": [1]},
+    {"id": 2, "skills": [2]},
+    {"id": 3, "skills": [3]},
+    {"id": 4, "skills": [4]},
 ]
 
 max_hours_per_day = 5
 
 # Budget parameters
-budget = 100
+budget = 1000
 normal_rate = 50
 overtime_rate = 60
 overtime_threshold = 4
 
 # GA parameters
 population_size = 100
-generations = 100000
 crossover_prob = 0.8
-max_generations_without_improvement = 100
+generations = 1000
+max_generations_without_improvement = 20
 
 # Risk management parameters
-sick_probability = 0.5
+sick_probability = 0.1
 sick_days = 2
 
 def create_individual():
-    return [random.randint(0, max_hours_per_day) for _ in range(team_members)]
+    individual = [0] * (team_members * len(project_tasks))
+    for task in project_tasks:
+        capable_members = [
+            i for i, member in enumerate(team_member_skills)
+            if can_member_perform_task(member["skills"], task["skills_required"])
+        ]
+        if not capable_members:
+            continue
+        assigned_member = random.choice(capable_members)
+        individual[assigned_member * len(project_tasks) + task["id"]] = random.randint(1, max_hours_per_day)
+    return individual
+
 
 def calculate_cost(individual):
     hours = np.array(individual)
@@ -51,20 +67,22 @@ def calculate_task_completion_time(task_hours, assigned_hours):
 
 def evaluate(individual):
     # Account for the risk of team members being sick
-    sick_hours = np.random.binomial(sick_days, sick_probability, team_members)
+    sick_hours = np.random.binomial(sick_days, sick_probability, team_members * len(project_tasks))
     adjusted_individual = np.maximum(np.array(individual) - sick_hours, 0)
-    
+
     # Calculate the time required to complete each task
     task_completion_times = []
     for task in project_tasks:
         task_times = []
-        for i, hours in enumerate(adjusted_individual):
+        for i in range(team_members):
+            index = i * len(project_tasks) + task["id"]
+            hours = adjusted_individual[index]
             if can_member_perform_task(team_member_skills[i]["skills"], task["skills_required"]) and hours > 0:
                 task_times.append(calculate_task_completion_time(task["hours"], hours))
-        if task_times:
-            task_completion_times.append(min(task_times))
-        else:
-            return float("inf"), float("inf")  # Task cannot be completed by any team member
+                if task_times:
+                    task_completion_times.append(min(task_times))
+                else:
+                    return float("inf"), float("inf") # Task cannot be completed by any team member
 
     # Calculate project duration considering dependencies
     max_dependency_time = [0] * len(project_tasks)
@@ -108,9 +126,10 @@ def ga():
     # Create initial population
     population = [create_individual() for _ in range(population_size)]
     fitnesses = list(map(evaluate, population))
+
     # Main GA loop
     best_individual = None
-    best_fitness = None
+    best_fitness = float("inf")
     generations_without_improvement = 0
     for gen in range(generations):
         offspring = []
@@ -123,8 +142,8 @@ def ga():
             else:
                 child1, child2 = parent1, parent2
 
-            mutate(child1, 1 / team_members)
-            mutate(child2, 1 / team_members)
+            mutate(child1, 1 / (team_members * len(project_tasks)))
+            mutate(child2, 1 / (team_members * len(project_tasks)))
             offspring.extend([child1, child2])
 
         # Update population
@@ -132,11 +151,11 @@ def ga():
         fitnesses = list(map(evaluate, population))
 
         # Track best individual
-        min_index, current_best_fitness = min(enumerate(fitnesses), key=lambda x: x[1])
+        min_index, current_best_fitness = min(enumerate(fitnesses), key=lambda x: x[1][0])
         current_best = population[min_index]
-        if best_fitness is None or current_best_fitness < best_fitness:
+        if current_best_fitness[0] < best_fitness:
             best_individual = current_best
-            best_fitness = current_best_fitness
+            best_fitness = current_best_fitness[0]
             generations_without_improvement = 0
         else:
             generations_without_improvement += 1
@@ -145,22 +164,18 @@ def ga():
         if generations_without_improvement >= max_generations_without_improvement:
             break
 
-
     return best_individual, best_fitness
 
-best_individual, (best_fitness, budget_difference) = ga()
+best_individual, best_fitness = ga()
+total_duration, budget_difference = evaluate(best_individual)
 print("Best individual:", best_individual)
-print("Project duration (days):", best_fitness)
-print("Additional budget required:", budget_difference)
-best_individual, (best_fitness, budget_difference) = ga()
-print("Best individual:", best_individual)
-print("Project duration (days):", best_fitness)
+print("Project duration (days):", total_duration)
 print("Additional budget required:", budget_difference)
 
-x = np.arange(team_members)
+x = np.arange(team_members * len(project_tasks))
 plt.bar(x, best_individual)
-plt.xlabel("Team Member")
+plt.xlabel("Team Member * Task ID")
 plt.ylabel("Hours Worked")
-plt.title(f"Task Scheduling (Project duration: {best_fitness} days)")
+plt.title(f"Task Scheduling (Project duration: {total_duration} days)")
 plt.xticks(x)
 plt.show()
