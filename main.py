@@ -2,26 +2,36 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
+import random
+import numpy as np
+import matplotlib.pyplot as plt
+
 # Problem parameters
-team_members = 10
-project_hours = 3000
+team_members = 5
+project_work_units = 600
 max_hours_per_day = 5
 
+# Team productivity (work units per hour)
+team_productivity = [10, 12]
+
 # Budget parameters
-budget = 20000
+budget = 100
 normal_rate = 50
 overtime_rate = 60
 overtime_threshold = 4
 
 # GA parameters
-population_size = 50
-generations = 1000
+population_size = 100
+generations = 100000
 crossover_prob = 0.8
 max_generations_without_improvement = 100
 
 # Risk management parameters
-sick_probability = 0.5
+working_days = 10
 sick_days = 2
+
+# Milestone parameters
+milestone_work_units = 200
 
 def create_individual():
     return [random.randint(0, max_hours_per_day) for _ in range(team_members)]
@@ -36,21 +46,35 @@ def calculate_cost(individual):
 def evaluate(individual):
     total_hours = sum(individual)
     if total_hours == 0:
-        return float("inf"),
+        return float("inf"), float("inf")
+    
+    # Calculate sick probability for each team member
+    sick_probabilities = [1 - ((working_days - sick_days) / working_days)**total_hours for total_hours in individual]
     
     # Account for the risk of team members being sick
-    sick_hours = np.random.binomial(sick_days, sick_probability, team_members)
+    sick_hours = np.random.binomial(sick_days, sick_probabilities)
     adjusted_individual = np.maximum(np.array(individual) - sick_hours, 0)
-    adjusted_total_hours = sum(adjusted_individual)
+    adjusted_work_units = np.sum(np.array(adjusted_individual) * np.array(team_productivity))
     
-    days = np.ceil(project_hours / adjusted_total_hours)
+    days = np.ceil(project_work_units / adjusted_work_units)
     total_cost = calculate_cost(individual)
     
+    budget_difference = 0
     if total_cost > budget:
-        penalty = (total_cost - budget) / (budget * 0.01)  # penalty as a percentage of the budget
+        budget_difference = total_cost - budget
+        penalty = budget_difference / (budget * 0.01)  # penalty as a percentage of the budget
         days += penalty
         
-    return days,
+    # Check if each team member meets the milestone requirement
+    individual_work_units = np.array(individual) * np.array(team_productivity)
+    for work_units in individual_work_units:
+        if work_units < milestone_work_units:
+            days += 1  # Add a penalty of 1 day if the team member does not meet the milestone requirement
+    
+    return days, budget_difference
+
+
+
 
 def tournament_selection(population, fitnesses, k):
     selected = []
@@ -116,9 +140,10 @@ def ga():
 
     return best_individual, best_fitness
 
-best_individual, best_fitness = ga()
+best_individual, (best_fitness, budget_difference) = ga()
 print("Best individual:", best_individual)
 print("Project duration (days):", best_fitness)
+print("Additional budget required:", budget_difference)
 
 # Visualize the result
 x = np.arange(team_members)
