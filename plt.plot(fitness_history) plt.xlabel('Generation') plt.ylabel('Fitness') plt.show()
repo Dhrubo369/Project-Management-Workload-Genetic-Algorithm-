@@ -1,0 +1,4 @@
+plt.plot(fitness_history)
+plt.xlabel('Generation')
+plt.ylabel('Fitness')
+plt.show()
