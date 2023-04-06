@@ -59,7 +59,7 @@ def evaluate(individual):
     for task in project_tasks:
         task_times = []
         for i, hours in enumerate(adjusted_individual):
-            if can_member_perform_task(team_member_skills[i]["skills"], task["skills_required"]):
+            if can_member_perform_task(team_member_skills[i]["skills"], task["skills_required"]) and hours > 0:
                 task_times.append(calculate_task_completion_time(task["hours"], hours))
         if task_times:
             task_completion_times.append(min(task_times))
@@ -82,6 +82,7 @@ def evaluate(individual):
         budget_difference = total_cost - budget
         penalty = budget_difference / (budget * 0.01)  # penalty as a percentage of the budget
         project_duration += penalty
+
     return project_duration, budget_difference
 
 def tournament_selection(population, fitnesses, k):
@@ -131,9 +132,8 @@ def ga():
         fitnesses = list(map(evaluate, population))
 
         # Track best individual
-        min_index = np.argmin(fitnesses)
+        min_index, current_best_fitness = min(enumerate(fitnesses), key=lambda x: x[1])
         current_best = population[min_index]
-        current_best_fitness = fitnesses[min_index]
         if best_fitness is None or current_best_fitness < best_fitness:
             best_individual = current_best
             best_fitness = current_best_fitness
@@ -144,6 +144,7 @@ def ga():
         # Check stopping criterion
         if generations_without_improvement >= max_generations_without_improvement:
             break
+
 
     return best_individual, best_fitness
 
