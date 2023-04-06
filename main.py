@@ -2,17 +2,20 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-import random
-import numpy as np
-import matplotlib.pyplot as plt
-
 # Problem parameters
-team_members = 5
-project_work_units = 600
-max_hours_per_day = 5
+team_members = 2
+project_tasks = [
+    {"id": 0, "hours": 20, "skills_required": [0], "dependencies": []},
+    {"id": 1, "hours": 30, "skills_required": [1], "dependencies": [0]},
+    {"id": 2, "hours": 10, "skills_required": [0, 1], "dependencies": [1]},
+]
 
-# Team productivity (work units per hour)
-team_productivity = [10, 12]
+team_member_skills = [
+    {"id": 0, "skills": [0, 1]},
+    {"id": 1, "skills": [1]},
+]
+
+max_hours_per_day = 5
 
 # Budget parameters
 budget = 100
@@ -27,11 +30,8 @@ crossover_prob = 0.8
 max_generations_without_improvement = 100
 
 # Risk management parameters
-working_days = 10
+sick_probability = 0.5
 sick_days = 2
-
-# Milestone parameters
-milestone_work_units = 200
 
 def create_individual():
     return [random.randint(0, max_hours_per_day) for _ in range(team_members)]
@@ -43,38 +43,46 @@ def calculate_cost(individual):
     total_cost = np.sum(normal_hours * normal_rate + overtime_hours * overtime_rate)
     return total_cost
 
+def can_member_perform_task(member_skills, task_skills):
+    return all(skill in member_skills for skill in task_skills)
+
+def calculate_task_completion_time(task_hours, assigned_hours):
+    return np.ceil(task_hours / assigned_hours)
+
 def evaluate(individual):
-    total_hours = sum(individual)
-    if total_hours == 0:
-        return float("inf"), float("inf")
-    
-    # Calculate sick probability for each team member
-    sick_probabilities = [1 - ((working_days - sick_days) / working_days)**total_hours for total_hours in individual]
-    
     # Account for the risk of team members being sick
-    sick_hours = np.random.binomial(sick_days, sick_probabilities)
+    sick_hours = np.random.binomial(sick_days, sick_probability, team_members)
     adjusted_individual = np.maximum(np.array(individual) - sick_hours, 0)
-    adjusted_work_units = np.sum(np.array(adjusted_individual) * np.array(team_productivity))
     
-    days = np.ceil(project_work_units / adjusted_work_units)
+    # Calculate the time required to complete each task
+    task_completion_times = []
+    for task in project_tasks:
+        task_times = []
+        for i, hours in enumerate(adjusted_individual):
+            if can_member_perform_task(team_member_skills[i]["skills"], task["skills_required"]):
+                task_times.append(calculate_task_completion_time(task["hours"], hours))
+        if task_times:
+            task_completion_times.append(min(task_times))
+        else:
+            return float("inf"), float("inf")  # Task cannot be completed by any team member
+
+    # Calculate project duration considering dependencies
+    max_dependency_time = [0] * len(project_tasks)
+    for task, completion_time in zip(project_tasks, task_completion_times):
+        for dep_id in task["dependencies"]:
+            max_dependency_time[task["id"]] = max(max_dependency_time[task["id"]], max_dependency_time[dep_id] + task_completion_times[dep_id])
+        max_dependency_time[task["id"]] += completion_time
+
+    project_duration = max(max_dependency_time)
+
     total_cost = calculate_cost(individual)
-    
+
     budget_difference = 0
     if total_cost > budget:
         budget_difference = total_cost - budget
         penalty = budget_difference / (budget * 0.01)  # penalty as a percentage of the budget
-        days += penalty
-        
-    # Check if each team member meets the milestone requirement
-    individual_work_units = np.array(individual) * np.array(team_productivity)
-    for work_units in individual_work_units:
-        if work_units < milestone_work_units:
-            days += 1  # Add a penalty of 1 day if the team member does not meet the milestone requirement
-    
-    return days, budget_difference
-
-
-
+        project_duration += penalty
+    return project_duration, budget_difference
 
 def tournament_selection(population, fitnesses, k):
     selected = []
@@ -99,7 +107,6 @@ def ga():
     # Create initial population
     population = [create_individual() for _ in range(population_size)]
     fitnesses = list(map(evaluate, population))
-
     # Main GA loop
     best_individual = None
     best_fitness = None
@@ -144,8 +151,11 @@ best_individual, (best_fitness, budget_difference) = ga()
 print("Best individual:", best_individual)
 print("Project duration (days):", best_fitness)
 print("Additional budget required:", budget_difference)
+best_individual, (best_fitness, budget_difference) = ga()
+print("Best individual:", best_individual)
+print("Project duration (days):", best_fitness)
+print("Additional budget required:", budget_difference)
 
-# Visualize the result
 x = np.arange(team_members)
 plt.bar(x, best_individual)
 plt.xlabel("Team Member")
