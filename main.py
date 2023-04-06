@@ -5,11 +5,11 @@ import tkinter as tk
 from tkinter import ttk
 team_members = 5
 project_tasks = [
-    {"id": 0, "hours": 20, "required_project_skills": [0], "dependencies": []},
-    {"id": 1, "hours": 30, "required_project_skills": [1], "dependencies": [0]},
+    {"id": 0, "hours": 10, "required_project_skills": [0], "dependencies": []},
+    {"id": 1, "hours": 10, "required_project_skills": [1], "dependencies": [0]},
     {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [1]},
-    {"id": 3, "hours": 15, "required_project_skills": [2], "dependencies": [0]},
-    {"id": 4, "hours": 25, "required_project_skills": [3, 4], "dependencies": [2, 3]},
+    {"id": 3, "hours": 10, "required_project_skills": [2], "dependencies": [0]},
+    {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [2, 3]},
 ]
 
 team_member_skills = [
@@ -37,7 +37,6 @@ max_generations_without_improvement = 20
 # Risk management parameters
 sick_probability = 0.1
 sick_days = 2
-
 def create_individual():
     individual = [0 for x in range(team_members * len(project_tasks))]
     for task in project_tasks:
@@ -47,9 +46,21 @@ def create_individual():
         ]
         if not capable_members:
             continue
-        assigned_member = random.choice(capable_members)
-        individual[assigned_member * len(project_tasks) + task["id"]] = random.randint(1, max_hours_per_day)
+
+        while True:
+            assigned_member = random.choice(capable_members)
+            assigned_hours = random.randint(1, max_hours_per_day)
+
+            required_days = int(np.ceil(task["hours"] / assigned_hours))
+            total_assigned_hours = required_days * assigned_hours
+
+            if total_assigned_hours >= task["hours"]:
+                individual[assigned_member * len(project_tasks) + task["id"]] = assigned_hours
+                break
+
     return individual
+
+
 
 
 def calculate_cost(individual):
