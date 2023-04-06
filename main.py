@@ -1,13 +1,13 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-
-# Problem parameters
+import tkinter as tk
+from tkinter import ttk
 team_members = 5
 project_tasks = [
     {"id": 0, "hours": 20, "required_project_skills": [0], "dependencies": []},
     {"id": 1, "hours": 30, "required_project_skills": [1], "dependencies": [0]},
-    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [1,0]},
+    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [1]},
     {"id": 3, "hours": 15, "required_project_skills": [2], "dependencies": [0]},
     {"id": 4, "hours": 25, "required_project_skills": [3, 4], "dependencies": [2, 3]},
 ]
@@ -15,23 +15,23 @@ project_tasks = [
 team_member_skills = [
     {"id": 0, "skills": [0, 1]},
     {"id": 1, "skills": [1]},
-    {"id": 2, "skills": [2]},
-    {"id": 3, "skills": [3]},
-    {"id": 4, "skills": [4]},
+    {"id": 2, "skills": [2,3]},
+    {"id": 3, "skills": [3,1]},
+    {"id": 4, "skills": [4,1,2,3]},
 ]
 
 max_hours_per_day = 5
 
 # Budget parameters
-budget = 1000
-normal_rate = 50
-overtime_rate = 60
+budget = 5000
+normal_rate = 20
+overtime_rate = 30
 overtime_threshold = 4
 
 # GA parameters
-population_size = 100
-crossover_prob = 0.8
-generations = 1000
+population_size = 10000
+crossover_prob = 0.5
+generations = 100000
 max_generations_without_improvement = 20
 
 # Risk management parameters
@@ -39,7 +39,7 @@ sick_probability = 0.1
 sick_days = 2
 
 def create_individual():
-    individual = [0 for _ in range(team_members * len(project_tasks))]
+    individual = [0 for x in range(team_members * len(project_tasks))]
     for task in project_tasks:
         capable_members = [
             i for i, member in enumerate(team_member_skills)
@@ -166,11 +166,53 @@ def ga():
 
     return best_individual, best_fitness
 
+import tkinter as tk
+from tkinter import ttk
+
+def show_schedule(best_individual):
+    root = tk.Tk()
+    root.title("Task Scheduling")
+
+    header_font = ("Arial", 12, "bold")
+    data_font = ("Arial", 10)
+
+    # Create header row
+    tk.Label(root, text="Team Member / Task", font=header_font).grid(row=0, column=0)
+
+    for j, task in enumerate(project_tasks):
+        task_label = f"Task {task['id']}"
+        tk.Label(root, text=task_label, font=header_font, bg="lightblue").grid(row=0, column=j + 1)
+
+    # Fill data rows
+    for i, member in enumerate(team_member_skills):
+        member_label = f"Team Member {i}"
+        tk.Label(root, text=member_label, font=header_font, bg="lightblue").grid(row=i + 1, column=0)
+
+        for j, task in enumerate(project_tasks):
+            index = i * len(project_tasks) + task["id"]
+            hours = best_individual[index]
+
+            if hours > 0:
+                cell_text = f"{hours}"
+                cell_bg = "lightgreen" if can_member_perform_task(member["skills"], task["required_project_skills"]) else "orange"
+            else:
+                cell_text = ""
+                cell_bg = None
+
+            tk.Label(root, text=cell_text, font=data_font, bg=cell_bg).grid(row=i + 1, column=j + 1)
+
+    root.mainloop()
+
+
+
+
 best_individual, best_fitness = ga()
 total_duration, budget_difference = evaluate(best_individual)
 print("Best individual:", best_individual)
 print("Project duration (days):", total_duration)
 print("Additional budget required:", budget_difference)
+
+show_schedule(best_individual)
 
 x = np.arange(team_members * len(project_tasks))
 plt.bar(x, best_individual)
