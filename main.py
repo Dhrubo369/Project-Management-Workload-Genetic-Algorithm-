@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 # Problem parameters
 team_members = 5
 project_tasks = [
-    {"id": 0, "hours": 20, "skills_required": [0], "dependencies": []},
-    {"id": 1, "hours": 30, "skills_required": [1], "dependencies": [0]},
-    {"id": 2, "hours": 10, "skills_required": [0, 1], "dependencies": [1,0]},
-    {"id": 3, "hours": 15, "skills_required": [2], "dependencies": [0]},
-    {"id": 4, "hours": 25, "skills_required": [3, 4], "dependencies": [2, 3]},
+    {"id": 0, "hours": 20, "required_project_skills": [0], "dependencies": []},
+    {"id": 1, "hours": 30, "required_project_skills": [1], "dependencies": [0]},
+    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [1,0]},
+    {"id": 3, "hours": 15, "required_project_skills": [2], "dependencies": [0]},
+    {"id": 4, "hours": 25, "required_project_skills": [3, 4], "dependencies": [2, 3]},
 ]
 
 team_member_skills = [
@@ -39,11 +39,11 @@ sick_probability = 0.1
 sick_days = 2
 
 def create_individual():
-    individual = [0] * (team_members * len(project_tasks))
+    individual = [0 for _ in range(team_members * len(project_tasks))]
     for task in project_tasks:
         capable_members = [
             i for i, member in enumerate(team_member_skills)
-            if can_member_perform_task(member["skills"], task["skills_required"])
+            if can_member_perform_task(member["skills"], task["required_project_skills"])
         ]
         if not capable_members:
             continue
@@ -77,7 +77,7 @@ def evaluate(individual):
         for i in range(team_members):
             index = i * len(project_tasks) + task["id"]
             hours = adjusted_individual[index]
-            if can_member_perform_task(team_member_skills[i]["skills"], task["skills_required"]) and hours > 0:
+            if can_member_perform_task(team_member_skills[i]["skills"], task["required_project_skills"]) and hours > 0:
                 task_times.append(calculate_task_completion_time(task["hours"], hours))
                 if task_times:
                     task_completion_times.append(min(task_times))
