@@ -26,7 +26,7 @@ max_hours_per_day = 5
 budget = 500
 normal_rate = 20
 overtime_rate = 30
-overtime_threshold = 4
+overtime_threshold = 1
 
 # GA parameters
 population_size = 10000
