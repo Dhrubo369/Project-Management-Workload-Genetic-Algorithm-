@@ -6,9 +6,9 @@ from tkinter import ttk
 team_members = 5
 project_tasks = [
     {"id": 0, "hours": 10, "required_project_skills": [0], "dependencies": []},
-    {"id": 1, "hours": 10, "required_project_skills": [1], "dependencies": []},
+    {"id": 1, "hours": 10, "required_project_skills": [1], "dependencies": [0]},
     {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [1]},
-    {"id": 3, "hours": 10, "required_project_skills": [2], "dependencies": []},
+    {"id": 3, "hours": 10, "required_project_skills": [2], "dependencies": [2]},
     {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [2, 3]},
 ]
 
@@ -29,19 +29,24 @@ overtime_rate = 30
 overtime_threshold = 4
 
 # GA parameters
-population_size = 10000
+population_size = 1000
 crossover_prob = 0.5
 generations = 100000
-max_generations_without_improvement = 20
+max_generations_without_improvement = 10
 
 # Risk management parameters
 sick_probability = 0.1
 sick_days = 2
 def create_individual():
     individual = [0 for x in range(team_members * len(project_tasks))]
+    
+    # Sort team members by skill level
+    sorted_members = sorted(team_member_skills, key=lambda x: len(x["skills"]), reverse=True)
+    
+    # Assign tasks to most skilled and available team member
     for task in project_tasks:
         capable_members = [
-            i for i, member in enumerate(team_member_skills)
+            member for member in sorted_members
             if can_member_perform_task(member["skills"], task["required_project_skills"])
         ]
         
@@ -51,11 +56,11 @@ def create_individual():
             assigned_hours = random.randint(1, max_hours_per_day)
             individual[assigned_member * len(project_tasks) + task["id"]] = assigned_hours
             continue
-
-        while True:
-            assigned_member = random.choice(capable_members)
+        
+        for member in capable_members:
+            assigned_member = member["id"]
             assigned_hours = random.randint(1, max_hours_per_day)
-
+            
             required_days = int(np.ceil(task["hours"] / assigned_hours))
             total_assigned_hours = required_days * assigned_hours
 
@@ -64,6 +69,7 @@ def create_individual():
                 break
 
     return individual
+
 
 
 
@@ -95,10 +101,10 @@ def evaluate(individual):
             hours = adjusted_individual[index]
             if can_member_perform_task(team_member_skills[i]["skills"], task["required_project_skills"]) and hours > 0:
                 task_times.append(calculate_task_completion_time(task["hours"], hours))
-                if task_times:
-                    task_completion_times.append(min(task_times))
-                else:
-                    return float("inf"), float("inf") # Task cannot be completed by any team member
+        if not task_times:
+            task_times.append(calculate_task_completion_time(task["hours"], max_hours_per_day))
+
+        task_completion_times.append(min(task_times))
 
     # Calculate project duration considering dependencies
     max_dependency_time = [0] * len(project_tasks)
@@ -121,9 +127,7 @@ def evaluate(individual):
 
 def tournament_selection(population, fitnesses, k):
     selected = []
-    for _ in range(k):
-        candidates = random.sample(range(len(population)), 3)
-        selected.append(min(candidates, key=lambda x: fitnesses[x]))
+    selected = random.choices(range(len(population)), weights=[1 / fit[0] for fit in fitnesses], k=k)
     return [population[i] for i in selected]
 
 def crossover(parent1, parent2):
@@ -206,7 +210,7 @@ def calculate_task_times(best_individual):
             task_times.append({"start_time": task_start_time, "end_time": task_end_time})
         else:
             task_times.append({"start_time": float("inf"), "end_time": float("inf")})
-
+    
     return task_times
 
 
@@ -252,11 +256,12 @@ def plot_gantt_chart(task_times, project_duration):
     fig, ax = plt.subplots()
 
     for task, times in enumerate(task_times):
-        if not np.isnan(times["start_time"]) and not np.isinf(times["start_time"]) and not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]):
+        if not np.isnan(times["start_time"]) and not np.isinf(times["start_time"]) and not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]) and not np.isnan(scaling_factor) and not np.isinf(scaling_factor):
             start_time = times["start_time"] * scaling_factor
             end_time = times["end_time"] * scaling_factor
             duration = end_time - start_time
             ax.barh(task, duration, left=start_time)
+
 
     ax.set_yticks(range(len(project_tasks)))
     ax.set_yticklabels([f"Task {task['id']}" for task in project_tasks])
