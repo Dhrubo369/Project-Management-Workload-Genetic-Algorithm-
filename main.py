@@ -6,9 +6,9 @@ from tkinter import ttk
 team_members = 5
 project_tasks = [
     {"id": 0, "hours": 10, "required_project_skills": [0], "dependencies": []},
-    {"id": 1, "hours": 10, "required_project_skills": [1], "dependencies": [0]},
+    {"id": 1, "hours": 10, "required_project_skills": [1], "dependencies": []},
     {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [1]},
-    {"id": 3, "hours": 10, "required_project_skills": [2], "dependencies": [0]},
+    {"id": 3, "hours": 10, "required_project_skills": [2], "dependencies": []},
     {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [2, 3]},
 ]
 
@@ -44,7 +44,12 @@ def create_individual():
             i for i, member in enumerate(team_member_skills)
             if can_member_perform_task(member["skills"], task["required_project_skills"])
         ]
+        
         if not capable_members:
+            # Assign a random team member if none are capable
+            assigned_member = random.randint(0, team_members - 1)
+            assigned_hours = random.randint(1, max_hours_per_day)
+            individual[assigned_member * len(project_tasks) + task["id"]] = assigned_hours
             continue
 
         while True:
@@ -153,8 +158,8 @@ def ga():
             else:
                 child1, child2 = parent1, parent2
 
-            mutate(child1, 1 / (team_members * len(project_tasks)))
-            mutate(child2, 1 / (team_members * len(project_tasks)))
+            mutate(child1, 1 / len(project_tasks))  
+            mutate(child2, 1 / len(project_tasks))
             offspring.extend([child1, child2])
 
         # Update population
@@ -177,8 +182,34 @@ def ga():
 
     return best_individual, best_fitness
 
-import tkinter as tk
-from tkinter import ttk
+def calculate_task_times(best_individual):
+    sick_hours = np.random.binomial(sick_days, sick_probability, team_members * len(project_tasks))
+    adjusted_individual = np.maximum(np.array(best_individual) - sick_hours, 0)
+
+    task_times = []
+    for task in project_tasks:
+        task_start_time = 0
+        for dep_id in task["dependencies"]:
+            task_start_time = max(task_start_time, task_times[dep_id]["end_time"])
+
+        task_assigned_hours = 0
+        for i in range(team_members):
+            index = i * len(project_tasks) + task["id"]
+            hours = adjusted_individual[index]
+            if hours > 0:
+                task_assigned_hours = hours
+                break
+
+        if task_assigned_hours > 0:
+            task_duration = calculate_task_completion_time(task["hours"], task_assigned_hours)
+            task_end_time = task_start_time + task_duration
+            task_times.append({"start_time": task_start_time, "end_time": task_end_time})
+        else:
+            task_times.append({"start_time": float("inf"), "end_time": float("inf")})
+
+    return task_times
+
+
 
 def show_schedule(best_individual):
     root = tk.Tk()
@@ -214,6 +245,29 @@ def show_schedule(best_individual):
 
     root.mainloop()
 
+def plot_gantt_chart(task_times, project_duration):
+    gantt_chart_duration = max(times["end_time"] for times in task_times if not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]))
+    scaling_factor = project_duration / gantt_chart_duration
+
+    fig, ax = plt.subplots()
+
+    for task, times in enumerate(task_times):
+        if not np.isnan(times["start_time"]) and not np.isinf(times["start_time"]) and not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]):
+            start_time = times["start_time"] * scaling_factor
+            end_time = times["end_time"] * scaling_factor
+            duration = end_time - start_time
+            ax.barh(task, duration, left=start_time)
+
+    ax.set_yticks(range(len(project_tasks)))
+    ax.set_yticklabels([f"Task {task['id']}" for task in project_tasks])
+    ax.set_xlabel("Days")
+    ax.set_ylabel("Tasks")
+    ax.set_title(f"Gantt Chart (Project duration: {project_duration} days)")
+
+    plt.show()
+
+
+
 
 
 
@@ -224,7 +278,8 @@ print("Project duration (days):", total_duration)
 print("Additional budget required:", budget_difference)
 
 show_schedule(best_individual)
-
+task_times = calculate_task_times(best_individual)
+plot_gantt_chart(task_times, total_duration)
 x = np.arange(team_members * len(project_tasks))
 plt.bar(x, best_individual)
 plt.xlabel("Team Member * Task ID")
