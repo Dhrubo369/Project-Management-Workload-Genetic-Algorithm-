@@ -29,7 +29,7 @@ overtime_rate = 30
 overtime_threshold = 4
 
 # GA parameters
-population_size = 1000
+population_size = 10000
 crossover_prob = 0.5
 generations = 100000
 max_generations_without_improvement = 10
@@ -37,39 +37,50 @@ max_generations_without_improvement = 10
 # Risk management parameters
 sick_probability = 0.1
 sick_days = 2
+def is_member_available(member_availability, task_dependencies):
+    for dep_id in task_dependencies:
+        if member_availability[dep_id] > 0:
+            return False
+    return True
+
+def find_next_available_day(member_availability, task_dependencies):
+    max_dependency_end_day = 0
+    for dep_id in task_dependencies:
+        max_dependency_end_day = max(max_dependency_end_day, member_availability[dep_id])
+    return max_dependency_end_day
+
 def create_individual():
     individual = [0 for x in range(team_members * len(project_tasks))]
-    
-    # Sort team members by skill level
-    sorted_members = sorted(team_member_skills, key=lambda x: len(x["skills"]), reverse=True)
-    
-    # Assign tasks to most skilled and available team member
+    member_availability = [[0 for x in range(len(project_tasks))] for y in range(team_members)]
+
     for task in project_tasks:
         capable_members = [
-            member for member in sorted_members
+            member for member in team_member_skills
             if can_member_perform_task(member["skills"], task["required_project_skills"])
         ]
-        
+
         if not capable_members:
-            # Assign a random team member if none are capable
-            assigned_member = random.randint(0, team_members - 1)
-            assigned_hours = random.randint(1, max_hours_per_day)
-            individual[assigned_member * len(project_tasks) + task["id"]] = assigned_hours
             continue
-        
+
+        random.shuffle(capable_members)  # Shuffle the list of capable members
+
         for member in capable_members:
             assigned_member = member["id"]
-            assigned_hours = random.randint(1, max_hours_per_day)
-            
-            required_days = int(np.ceil(task["hours"] / assigned_hours))
-            total_assigned_hours = required_days * assigned_hours
+            task_index = assigned_member * len(project_tasks) + task["id"]
 
-            if total_assigned_hours >= task["hours"]:
-                individual[assigned_member * len(project_tasks) + task["id"]] = assigned_hours
-                break
+            if not is_member_available(member_availability[assigned_member], task["dependencies"]):
+                continue
+
+            assigned_hours = random.randint(1, max_hours_per_day)
+            required_days = int(np.ceil(task["hours"] / assigned_hours))
+
+            next_available_day = find_next_available_day(member_availability[assigned_member], task["dependencies"])
+            member_availability[assigned_member][task["id"]] = next_available_day + required_days
+
+            individual[task_index] = assigned_hours
+            break
 
     return individual
-
 
 
 
@@ -139,8 +150,17 @@ def crossover(parent1, parent2):
 def mutate(individual, indpb):
     for i in range(len(individual)):
         if random.random() < indpb:
-            individual[i] = random.randint(0, max_hours_per_day)
+            team_member_id = i // len(project_tasks)
+            task_id = i % len(project_tasks)
+            member_skills = team_member_skills[team_member_id]["skills"]
+            task_skills = project_tasks[task_id]["required_project_skills"]
+
+            if can_member_perform_task(member_skills, task_skills):
+                individual[i] = random.randint(1, max_hours_per_day)
+            else:
+                individual[i] = 0
     return individual,
+
 
 def ga():
     # Create initial population
