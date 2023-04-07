@@ -5,11 +5,11 @@ import tkinter as tk
 from tkinter import ttk
 team_members = 5
 project_tasks = [
-    {"id": 0, "hours": 5, "required_project_skills": [0], "dependencies": []},
+    {"id": 0, "hours": 10, "required_project_skills": [0], "dependencies": []},
     {"id": 1, "hours": 5, "required_project_skills": [1], "dependencies": [0]},
-    {"id": 2, "hours": 5, "required_project_skills": [0, 1], "dependencies": [0,1]},
+    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [0,1]},
     {"id": 3, "hours": 5, "required_project_skills": [2], "dependencies": [2]},
-    {"id": 4, "hours": 5, "required_project_skills": [3, 4], "dependencies": [3]},
+    {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [3]},
 ]
 
 team_member_skills = [
@@ -35,7 +35,7 @@ generations = 10000
 max_generations_without_improvement = 10
 
 # Risk management parameters
-sick_probability = 0.1
+sick_probability = 0.4
 sick_days = 2
 
 def is_member_available(member_availability, task_dependencies):
