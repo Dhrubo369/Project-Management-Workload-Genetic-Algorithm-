@@ -23,7 +23,7 @@ team_member_skills = [
 max_hours_per_day = 5
 
 # Budget parameters
-budget = 5000
+budget = 500
 normal_rate = 20
 overtime_rate = 30
 overtime_threshold = 4
@@ -31,12 +31,13 @@ overtime_threshold = 4
 # GA parameters
 population_size = 10000
 crossover_prob = 0.5
-generations = 100000
+generations = 10000
 max_generations_without_improvement = 10
 
 # Risk management parameters
 sick_probability = 0.1
 sick_days = 2
+
 def is_member_available(member_availability, task_dependencies):
     for dep_id in task_dependencies:
         if member_availability[dep_id] > 0:
@@ -79,7 +80,6 @@ def create_individual():
 
             individual[task_index] = assigned_hours
             break
-
     return individual
 
 
@@ -290,8 +290,6 @@ def plot_gantt_chart(task_times, project_duration):
     ax.set_title(f"Gantt Chart (Project duration: {project_duration} days)")
 
     plt.show()
-
-
 
 
 
