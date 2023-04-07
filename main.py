@@ -5,11 +5,11 @@ import tkinter as tk
 from tkinter import ttk
 team_members = 5
 project_tasks = [
-    {"id": 0, "hours": 10, "required_project_skills": [0], "dependencies": []},
-    {"id": 1, "hours": 10, "required_project_skills": [1], "dependencies": [0]},
-    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [1]},
-    {"id": 3, "hours": 10, "required_project_skills": [2], "dependencies": [2]},
-    {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [2, 3]},
+    {"id": 0, "hours": 5, "required_project_skills": [0], "dependencies": []},
+    {"id": 1, "hours": 5, "required_project_skills": [1], "dependencies": [0]},
+    {"id": 2, "hours": 5, "required_project_skills": [0, 1], "dependencies": [0,1]},
+    {"id": 3, "hours": 5, "required_project_skills": [2], "dependencies": [2]},
+    {"id": 4, "hours": 5, "required_project_skills": [3, 4], "dependencies": [3]},
 ]
 
 team_member_skills = [
@@ -23,10 +23,10 @@ team_member_skills = [
 max_hours_per_day = 5
 
 # Budget parameters
-budget = 500
+budget = 5000
 normal_rate = 20
 overtime_rate = 30
-overtime_threshold = 1
+overtime_threshold = 3
 
 # GA parameters
 population_size = 10000
@@ -269,18 +269,39 @@ def show_schedule(best_individual):
 
     root.mainloop()
 
-def plot_gantt_chart(task_times, project_duration):
+def plot_gantt_chart(task_times, project_duration, best_individual):
     gantt_chart_duration = max(times["end_time"] for times in task_times if not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]))
     scaling_factor = project_duration / gantt_chart_duration
 
     fig, ax = plt.subplots()
+
+    task_member_mapping = {}  # Store the team member assigned to each task
+
+    for task in project_tasks:
+        task_id = task["id"]
+        for i in range(team_members):
+            index = i * len(project_tasks) + task_id
+            hours = best_individual[index]
+            if hours > 0:
+                task_member_mapping[task_id] = i
+                break
 
     for task, times in enumerate(task_times):
         if not np.isnan(times["start_time"]) and not np.isinf(times["start_time"]) and not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]) and not np.isnan(scaling_factor) and not np.isinf(scaling_factor):
             start_time = times["start_time"] * scaling_factor
             end_time = times["end_time"] * scaling_factor
             duration = end_time - start_time
-            ax.barh(task, duration, left=start_time)
+            task_label = f"Task {task} (Team Member {task_member_mapping[task]})"
+            ax.barh(task, duration, left=start_time, label=task_label)
+
+    ax.set_yticks(range(len(project_tasks)))
+    ax.set_yticklabels([f"Task {task['id']} (Team Member {task_member_mapping.get(task['id'], 'Not assigned')})" for task in project_tasks])
+    ax.set_xlabel("Days")
+    ax.set_ylabel("Tasks")
+    ax.set_title(f"Gantt Chart (Project duration: {project_duration} days)")
+    ax.legend()
+
+    plt.show()
 
 
     ax.set_yticks(range(len(project_tasks)))
@@ -302,11 +323,4 @@ print("Additional budget required:", budget_difference)
 
 show_schedule(best_individual)
 task_times = calculate_task_times(best_individual)
-plot_gantt_chart(task_times, total_duration)
-x = np.arange(team_members * len(project_tasks))
-plt.bar(x, best_individual)
-plt.xlabel("Team Member * Task ID")
-plt.ylabel("Hours Worked")
-plt.title(f"Task Scheduling (Project duration: {total_duration} days)")
-plt.xticks(x)
-plt.show()
+plot_gantt_chart(task_times, total_duration, best_individual)
