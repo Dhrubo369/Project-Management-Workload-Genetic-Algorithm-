@@ -6,10 +6,10 @@ from tkinter import ttk
 team_members = 5
 project_tasks = [
     {"id": 0, "hours": 10, "required_project_skills": [0], "dependencies": []},
-    {"id": 1, "hours": 5, "required_project_skills": [1], "dependencies": [0]},
-    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [0,1]},
-    {"id": 3, "hours": 5, "required_project_skills": [2], "dependencies": [2]},
-    {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [3]},
+    {"id": 1, "hours": 5, "required_project_skills": [1], "dependencies": []},
+    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": []},
+    {"id": 3, "hours": 5, "required_project_skills": [2], "dependencies": []},
+    {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [0]},
 ]
 
 team_member_skills = [
@@ -26,16 +26,16 @@ max_hours_per_day = 5
 budget = 5000
 normal_rate = 20
 overtime_rate = 30
-overtime_threshold = 3
+overtime_threshold = 4
 
 # GA parameters
-population_size = 10000
+population_size = 1000
 crossover_prob = 0.5
-generations = 10000
+generations = 6969
 max_generations_without_improvement = 10
 
 # Risk management parameters
-sick_probability = 0.4
+sick_probability = 0.1
 sick_days = 2
 
 def is_member_available(member_availability, task_dependencies):
@@ -54,6 +54,8 @@ def create_individual():
     individual = [0 for x in range(team_members * len(project_tasks))]
     member_availability = [[0 for x in range(len(project_tasks))] for y in range(team_members)]
 
+    total_assigned_hours = [0 for _ in range(team_members)]
+
     for task in project_tasks:
         capable_members = [
             member for member in team_member_skills
@@ -63,8 +65,10 @@ def create_individual():
         if not capable_members:
             continue
 
-        random.shuffle(capable_members)  # Shuffle the list of capable members
+        # Sort the list of capable members by total assigned hours (ascending)
+        capable_members.sort(key=lambda member: total_assigned_hours[member["id"]])
 
+        assigned = False
         for member in capable_members:
             assigned_member = member["id"]
             task_index = assigned_member * len(project_tasks) + task["id"]
@@ -79,7 +83,30 @@ def create_individual():
             member_availability[assigned_member][task["id"]] = next_available_day + required_days
 
             individual[task_index] = assigned_hours
+            total_assigned_hours[assigned_member] += assigned_hours
+
+            assigned = True
             break
+
+        # Assign the task to the next available team member with the least workload if not assigned yet
+        if not assigned:
+            for member in capable_members:
+                assigned_member = member["id"]
+                task_index = assigned_member * len(project_tasks) + task["id"]
+
+                if individual[task_index] > 0:
+                    continue
+
+                assigned_hours = random.randint(1, max_hours_per_day)
+                required_days = int(np.ceil(task["hours"] / assigned_hours))
+
+                next_available_day = find_next_available_day(member_availability[assigned_member], [])
+                member_availability[assigned_member][task["id"]] = next_available_day + required_days
+
+                individual[task_index] = assigned_hours
+                total_assigned_hours[assigned_member] += assigned_hours
+                break
+
     return individual
 
 
