@@ -6,10 +6,10 @@ from tkinter import ttk
 team_members = 5
 project_tasks = [
     {"id": 0, "hours": 10, "required_project_skills": [0], "dependencies": []},
-    {"id": 1, "hours": 5, "required_project_skills": [1], "dependencies": []},
-    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": []},
-    {"id": 3, "hours": 5, "required_project_skills": [2], "dependencies": []},
-    {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [0]},
+    {"id": 1, "hours": 5, "required_project_skills": [1], "dependencies": [0]},
+    {"id": 2, "hours": 10, "required_project_skills": [0, 1], "dependencies": [1]},
+    {"id": 3, "hours": 5, "required_project_skills": [2], "dependencies": [1]},
+    {"id": 4, "hours": 10, "required_project_skills": [3, 4], "dependencies": [0,1,2,3]},
 ]
 
 team_member_skills = [
@@ -20,10 +20,10 @@ team_member_skills = [
     {"id": 4, "skills": [4,1,2,3]},
 ]
 
-max_hours_per_day = 5
+max_hours_per_day = 8
 
 # Budget parameters
-budget = 5000
+budget = 2000
 normal_rate = 20
 overtime_rate = 30
 overtime_threshold = 4
@@ -35,7 +35,7 @@ generations = 6969
 max_generations_without_improvement = 10
 
 # Risk management parameters
-sick_probability = 0.1
+sick_probability = 0.2
 sick_days = 2
 
 def is_member_available(member_availability, task_dependencies):
@@ -189,49 +189,61 @@ def mutate(individual, indpb):
     return individual,
 
 
-def ga():
-    # Create initial population
-    population = [create_individual() for _ in range(population_size)]
-    fitnesses = list(map(evaluate, population))
-
-    # Main GA loop
+def ga(num_restarts=18, acceptable_fitness=None, max_restarts_without_improvement=3):
     best_individual = None
     best_fitness = float("inf")
-    generations_without_improvement = 0
-    for gen in range(generations):
-        offspring = []
+    restarts_without_improvement = 0
 
-        # Apply crossover and mutation
-        for _ in range(population_size // 2):
-            parent1, parent2 = tournament_selection(population, fitnesses, 2)
-            if random.random() < crossover_prob:
-                child1, child2 = crossover(parent1, parent2)
-            else:
-                child1, child2 = parent1, parent2
-
-            mutate(child1, 1 / len(project_tasks))  
-            mutate(child2, 1 / len(project_tasks))
-            offspring.extend([child1, child2])
-
-        # Update population
-        population = offspring
+    for i in range(num_restarts):
+        # Create initial population
+        population = [create_individual() for _ in range(population_size)]
         fitnesses = list(map(evaluate, population))
 
-        # Track best individual
-        min_index, current_best_fitness = min(enumerate(fitnesses), key=lambda x: x[1][0])
-        current_best = population[min_index]
-        if current_best_fitness[0] < best_fitness:
-            best_individual = current_best
-            best_fitness = current_best_fitness[0]
-            generations_without_improvement = 0
-        else:
-            generations_without_improvement += 1
+        # Main GA loop
+        generations_without_improvement = 0
+        for gen in range(generations):
+            offspring = []
 
-        # Check stopping criterion
-        if generations_without_improvement >= max_generations_without_improvement:
+            # Applying crossover and mutation
+            for _ in range(population_size // 2):
+                parent1, parent2 = tournament_selection(population, fitnesses, 2)
+                if random.random() < crossover_prob:
+                    child1, child2 = crossover(parent1, parent2)
+                else:
+                    child1, child2 = parent1, parent2
+
+                mutate(child1, 1 / len(project_tasks))
+                mutate(child2, 1 / len(project_tasks))
+                offspring.extend([child1, child2])
+
+            # Update population
+            population = offspring
+            fitnesses = list(map(evaluate, population))
+
+            # Track best individual
+            min_index, current_best_fitness = min(enumerate(fitnesses), key=lambda x: x[1][0])
+            current_best = population[min_index]
+            if current_best_fitness[0] < best_fitness:
+                best_individual = current_best
+                best_fitness = current_best_fitness[0]
+                generations_without_improvement = 0
+                restarts_without_improvement = 0
+            else:
+                generations_without_improvement += 1
+
+            # Check stopping criterion
+            if generations_without_improvement >= max_generations_without_improvement:
+                break
+
+        if acceptable_fitness is not None and best_fitness <= acceptable_fitness:
+            break
+
+        restarts_without_improvement += 1
+        if restarts_without_improvement >= max_restarts_without_improvement:
             break
 
     return best_individual, best_fitness
+
 
 def calculate_task_times(best_individual):
     sick_hours = np.random.binomial(sick_days, sick_probability, team_members * len(project_tasks))
@@ -269,14 +281,14 @@ def show_schedule(best_individual):
     header_font = ("Arial", 12, "bold")
     data_font = ("Arial", 10)
 
-    # Create header row
+    # Creating header row
     tk.Label(root, text="Team Member / Task", font=header_font).grid(row=0, column=0)
 
     for j, task in enumerate(project_tasks):
         task_label = f"Task {task['id']}"
         tk.Label(root, text=task_label, font=header_font, bg="lightblue").grid(row=0, column=j + 1)
 
-    # Fill data rows
+    # Filling data rows
     for i, member in enumerate(team_member_skills):
         member_label = f"Team Member {i}"
         tk.Label(root, text=member_label, font=header_font, bg="lightblue").grid(row=i + 1, column=0)
@@ -297,47 +309,38 @@ def show_schedule(best_individual):
     root.mainloop()
 
 def plot_gantt_chart(task_times, project_duration, best_individual):
-    gantt_chart_duration = max(times["end_time"] for times in task_times if not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]))
-    scaling_factor = project_duration / gantt_chart_duration
-
     fig, ax = plt.subplots()
 
-    task_member_mapping = {}  # Store the team member assigned to each task
-
-    for task in project_tasks:
-        task_id = task["id"]
-        for i in range(team_members):
-            index = i * len(project_tasks) + task_id
-            hours = best_individual[index]
-            if hours > 0:
-                task_member_mapping[task_id] = i
-                break
-
+    # Iterate through tasks
     for task, times in enumerate(task_times):
-        if not np.isnan(times["start_time"]) and not np.isinf(times["start_time"]) and not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]) and not np.isnan(scaling_factor) and not np.isinf(scaling_factor):
-            start_time = times["start_time"] * scaling_factor
-            end_time = times["end_time"] * scaling_factor
+        if not np.isnan(times["start_time"]) and not np.isinf(times["start_time"]) and not np.isnan(times["end_time"]) and not np.isinf(times["end_time"]):
+            start_time = times["start_time"]
+            end_time = times["end_time"]
             duration = end_time - start_time
-            task_label = f"Task {task} (Team Member {task_member_mapping[task]})"
-            ax.barh(task, duration, left=start_time, label=task_label)
+            task_label = f"Task {task}"
 
-    ax.set_yticks(range(len(project_tasks)))
-    ax.set_yticklabels([f"Task {task['id']} (Team Member {task_member_mapping.get(task['id'], 'Not assigned')})" for task in project_tasks])
-    ax.set_xlabel("Days")
-    ax.set_ylabel("Tasks")
-    ax.set_title(f"Gantt Chart (Project duration: {project_duration} days)")
-    ax.legend()
+            # Find the team member assigned to the task
+            assigned_member = None
+            for i in range(team_members):
+                index = i * len(project_tasks) + task
+                hours = best_individual[index]
+                if hours > 0:
+                    assigned_member = i
+                    break
 
-    plt.show()
-
+            if assigned_member is not None:
+                task_label += f" (Team Member {assigned_member})"
+                ax.barh(task, duration, left=start_time, label=task_label)
 
     ax.set_yticks(range(len(project_tasks)))
     ax.set_yticklabels([f"Task {task['id']}" for task in project_tasks])
     ax.set_xlabel("Days")
     ax.set_ylabel("Tasks")
-    ax.set_title(f"Gantt Chart (Project duration: {project_duration} days)")
+    ax.set_title(f"Gantt Chart (Project duration: {project_duration:.2f} days)")
+    ax.legend()
 
     plt.show()
+
 
 
 
