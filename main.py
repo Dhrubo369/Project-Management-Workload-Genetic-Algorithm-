@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import ttk
 team_members = 5
+
 project_tasks = [
     {"id": 0, "hours": 10, "required_project_skills": [0], "dependencies": []},
     {"id": 1, "hours": 5, "required_project_skills": [1], "dependencies": [0]},
@@ -13,7 +14,7 @@ project_tasks = [
 ]
 
 team_member_skills = [
-    {"id": 0, "skills": [0, 1]},
+    {"id": "Bob", "skills": [0, 1]},
     {"id": 1, "skills": [1]},
     {"id": 2, "skills": [2,3]},
     {"id": 3, "skills": [3,1]},
@@ -308,7 +309,7 @@ def show_schedule(best_individual):
 
     root.mainloop()
 
-def plot_gantt_chart(task_times, project_duration, best_individual):
+def plot_gantt_chart(task_times, project_duration):
     fig, ax = plt.subplots()
 
     # Iterate through tasks
@@ -319,18 +320,7 @@ def plot_gantt_chart(task_times, project_duration, best_individual):
             duration = end_time - start_time
             task_label = f"Task {task}"
 
-            # Find the team member assigned to the task
-            assigned_member = None
-            for i in range(team_members):
-                index = i * len(project_tasks) + task
-                hours = best_individual[index]
-                if hours > 0:
-                    assigned_member = i
-                    break
-
-            if assigned_member is not None:
-                task_label += f" (Team Member {assigned_member})"
-                ax.barh(task, duration, left=start_time, label=task_label)
+            ax.barh(task, duration, left=start_time, label=task_label)
 
     ax.set_yticks(range(len(project_tasks)))
     ax.set_yticklabels([f"Task {task['id']}" for task in project_tasks])
@@ -345,6 +335,7 @@ def plot_gantt_chart(task_times, project_duration, best_individual):
 
 
 
+
 best_individual, best_fitness = ga()
 total_duration, budget_difference = evaluate(best_individual)
 print("Best individual:", best_individual)
@@ -353,4 +344,4 @@ print("Additional budget required:", budget_difference)
 
 show_schedule(best_individual)
 task_times = calculate_task_times(best_individual)
-plot_gantt_chart(task_times, total_duration, best_individual)
+plot_gantt_chart(task_times, total_duration)
