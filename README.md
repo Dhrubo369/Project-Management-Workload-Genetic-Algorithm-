@@ -1,39 +1,63 @@
-ProjectManagement with GA
-Python Code for Task Scheduling Optimization with Genetic Algorithm
+Project Task Scheduling and Budget Optimization using Genetic Algorithm
 
-Description
-This Python code implements a genetic algorithm to optimize the scheduling of tasks assigned to a team of workers in order to minimize project duration and stay within a given budget. The problem considers the skills of team members, dependencies between tasks, and the risk of workers getting sick.
+This project aims to optimize the scheduling of project tasks and budget allocation using a genetic algorithm (GA). Given a set of project tasks, a team with different skillsets, and budget constraints, the GA will generate the best schedule that satisfies the dependencies and skill requirements of each task while minimizing the project duration and budget deviation.
 
-The code uses NumPy and Matplotlib libraries for data manipulation and visualization.
+Dependencies
 
-Usage
-Download or clone the repository to your local machine.
+This project requires the following libraries to be installed:
+•	numpy
+•	matplotlib
+•	tkinter
 
-Open the task_scheduling.py file in your preferred Python IDE or text editor.
+Project Parameters
 
-Modify the problem parameters in the code to customize the problem to your specific requirements (see the parameters section below for details).
+Team Members
+•	team_members: An integer representing the number of team members available for the project.
+Project Tasks
+•	project_tasks: A list of dictionaries representing the tasks required to complete the project. Each dictionary contains the following keys:
+•	id: An integer representing the task's unique identifier.
+•	hours: An integer representing the number of hours required to complete the task.
+•	required_project_skills: A list of integers representing the skills required to complete the task. Each integer corresponds to the index of the skill in the team_member_skills list.
+•	dependencies: A list of integers representing the tasks that must be completed before this task can begin.
+Team Member Skills
+•	team_member_skills: A list of dictionaries representing the skills of each team member. Each dictionary contains the following keys:
+•	id: An integer representing the team member's unique identifier.
+•	skills: A list of integers representing the skills possessed by the team member. Each integer corresponds to the index of the skill in the project_skills list.
 
-Run the code to execute the program.
+Budget Parameters
+•	budget: An integer representing the budget available for the project.
+•	normal_rate: An integer representing the hourly rate for normal work hours.
+•	overtime_rate: An integer representing the hourly rate for overtime work hours.
+•	overtime_threshold: An integer representing the number of hours per day after which overtime rates apply.
+GA Parameters
+•	population_size: An integer representing the size of the GA population.
+•	crossover_prob: A float representing the probability of performing crossover during the GA.
+•	generations: An integer representing the number of GA generations.
+•	max_generations_without_improvement: An integer representing the maximum number of GA generations without improvement before stopping.
+Risk Management Parameters
+•	sick_probability: A float representing the probability of a team member being sick.
+•	sick_days: An integer representing the number of days a team member is sick.
+Functions
+The program consists of several functions that perform different tasks:
 
-The program will output the best individual, project duration, and additional budget required to complete the project.
+create_individual()
+This function creates an individual in the genetic algorithm population, which is a list of task assignments for each team member.
 
-A bar chart will also be generated showing the hours worked by each team member on each task.
+evaluate(individual)
+This function evaluates an individual by calculating the project duration and the additional budget required to complete the project. It also accounts for the risk of team members being sick and not available for work.
 
-Parameters
-The following parameters can be modified in the code to customize the problem:
+ga(num_restarts, acceptable_fitness, max_restarts_without_improvement)
+This function performs the genetic algorithm optimization by creating an initial population, evaluating the fitness of each individual, and applying genetic operators such as crossover and mutation. It returns the best individual found and its fitness.
 
-team_members: The number of workers in the team.
-project_tasks: A list of dictionaries defining the tasks to be completed, including the hours required, skills required, and dependencies on other tasks.
-team_member_skills: A list of dictionaries defining the skills of each team member.
-max_hours_per_day: The maximum number of hours a worker can work in a day.
-budget: The total budget allocated for the project.
-normal_rate: The hourly rate for regular working hours.
-overtime_rate: The hourly rate for overtime working hours.
-overtime_threshold: The number of hours after which regular working hours become overtime working hours.
-population_size: The size of the population in the genetic algorithm.
-crossover_prob: The probability of crossover in the genetic algorithm.
-generations: The number of generations in the genetic algorithm.
-max_generations_without_improvement: The maximum number of generations without improvement before the genetic algorithm stops.
-sick_probability: The probability of a worker getting sick on any given day.
-sick_days: The number of days a worker is sick if they get sick.
-License
+show_schedule(best_individual)
+This function creates a GUI window that displays the schedule of task assignments for each team member in a tabular format.
+
+calculate_task_times(best_individual)
+This function calculates the start and end times of each task based on the assigned hours and task dependencies.
+
+plot_gantt_chart(task_times, project_duration)
+This function creates a Gantt chart that visualizes the project schedule and duration.
+
+Results
+The project scheduler will display the best project schedule and a Gantt chart showing the task timeline. Additionally, the project scheduler will output the best individual (i.e., the optimal task scheduling), the project duration, and the additional budget required to complete the project within the given constraints.
+
